@@ -1,22 +1,62 @@
 <template>
 	<view>
-		<video id="myVideo" ref="video1" :src="videoUrl"
-		v-if="showVideo"
-		 @error="videoErrorCallback" 
-		 @timeupdate="timeUpdate"
-		 @loadedmetadata="loadedMetaData"
-		 loop=true
-		 :initial-time="startTime"
-		:danmu-list="danmuList" enable-danmu danmu-btn controls
-		style="width: 100%;"></video>
-		<!-- #ifndef MP-ALIPAY -->
+		<!--视频区-->
+		<video id="myVideo" :src="videoUrl" @error="videoErrorCallback"
+			@timeupdate="timeUpdate" 
+			@loadedmetadata="loadedMetaData" 
+			@progress="onProgressVideo"
+			@play="play"
+			@pause="pause"
+			:autoplay="videoConfig.isAutoPlay"
+			:initial-time="videoConfig.startTime"
+			:loop="videoConfig.isLoop"
+			:danmu-list="danmuList" enable-danmu danmu-btn controls style="width: 100%;"></video>
+		
+		<!--弹幕-->
 		<view style="padding: 20rpx;">
 			<view style="margin-top: 20rpx;display: flex;align-items: center;justify-content: space-between;">
-				<input v-model="danmuValue" type="text" placeholder="在此处输入弹幕内容" style="width: 50%;"/>
-				<button @click="sendDanmu" style="font-size: 15px;background-color: cornflowerblue;color: #fff;">发送弹幕</button>
+				<input v-model="danmuValue" type="text" placeholder="在此处输入弹幕内容" style="width: 50%;" />
+				<button @click="sendDanmu"
+					style="font-size: 15px;background-color: cornflowerblue;color: #fff;">发送弹幕</button>
 			</view>
 		</view>
-		<!-- #endif -->
+		
+		<!--操作按钮-->
+		<view style="padding:20rpx;margin-bottom: 10rpx;">
+			<view style="display: flex;justify-content: space-around;margin-bottom: 10rpx;">
+				<image class="btn_img" src="/static/video/play.png" mode="aspectFit" @click="play"v-if="!playing"/>
+				<image class="btn_img" src="/static/video//pause.png" mode="aspectFit" @click="pause" v-else/>
+				<image class="btn_img" src="/static/video//dowload.png" mode="aspectFit" @click="downloadVideoM"/>
+				<image class="btn_img" src="/static/video//next.png" mode="aspectFit" @click="next"/>
+			</view>
+			
+			<view class="video_switch_view">
+				<text>自动播放</text>
+				<switch @change="changeSwitch('autoplay',$event)" color="#FFCC33" style="transform:scale(0.7)"/>
+			</view>
+			<view class="video_switch_view">
+				<text>循环播放</text>
+				<switch @change="changeSwitch('loop',$event)" color="#FFCC33" style="transform:scale(0.7)"/>
+			</view>
+		</view>
+
+		<!--合集列表-->
+		<view>
+			<!--季度信息-->
+			<view style="display: flex;padding: 20rpx;" v-if="quarterInfos.length>0">
+				<text v-for="(quarterInfo,index) in quarterInfos" :key="index"
+					@click="changeQuarter(index)"
+					:style="{'background-color': nowQuarterIndex==index? 'lightblue':''}"
+					style="margin-left: 20rpx;border: 1px solid lightgray;border-radius: 15rpx;display: inline-block;padding: 20rpx;">{{quarterInfo}}</text>
+			</view>
+			
+			<!--视频信息-->
+			<view v-for="(video,index) in videos" :key="index" class="video_view" @click="playVideo(video,index)"
+				:style="{'background-color': nowPlayIndex==index? 'lightblue':''}">
+				<text>{{video.videoName}}</text>
+				<text style="font-size: 12px;color: lightgrey">{{video.relativePath}}</text>
+			</view>
+		</view>
 
 	</view>
 </template>
@@ -28,55 +68,70 @@
 		addDanmu2Video,
 		getAllDanmu,
 		savePlayHistory,
-		getVideoHistory
+		getVideoHistory,
+		findQuarterInfo,
+		findVideoPhysicsInfoByPage,
+		downloadVideo
 	} from '@/apis/index.js'
 	export default {
 		data() {
 			return {
-				loginName:uni.getStorageSync("loginName"),
-				videoId:'',
+				videoConfig:{//视频配置信息
+					isAutoPlay:false,
+					isLoop:false,
+					startTime:0,//开始时间,
+				},
+				loginName: uni.getStorageSync("loginName"),
 				videoUrl: '',
 				danmuList: [],
 				danmuValue: '',
 				currentPlayTime: 0, //当前播放时长
-				// 总时间
-				duration: 0.1,
-				// 是否正在拖拽进度
-				isDrag: false,
-				showVideo:false,//如果弹幕还没加载，先加载video组件，后续的弹幕就不会展示了
-				startTime:0,//开始时间
+				duration: 0,// 总时间
+				showVideo: false, //如果弹幕还没加载，先加载video组件，后续的弹幕就不会展示了
+
+				nowPlayIndex:0,//当前播放的视频索引
+				nowQuarterIndex:0,//当前季度索引
+				pageInfo: {
+					page: 0,
+					size: 10,
+				},
+				pageParam: {
+					infoId: '',
+					quarterInfo:'',//季度信息
+				},
+				quarterInfos:[],//季度列表
+				videos: [],
+				loadMoreStatus: "more",
+				videoContext:null,//用来手动控制视频播放和暂停等
+				firstVideo:true,//第一个视频，不自动播放，后续的自动播放
+				playing:false,//
+				autoPlaying:false,//代码设置自动播放，true正在播放
+				videoId:'',//从历史记录跳进来的才有值
 			}
 		},
 		onLoad(e) {
-			// e.vId = "1337781752"
-			this.videoId = e.vId;
-			
-			this.videoUrl = getVideoUrl(this.videoId);
-			this.videoUrl += "/"+this.loginName
-			this.videoUrl =  encodeURI(this.videoUrl) 
-			
-			// #ifndef MP-ALIPAY
-			this.videoContext = uni.createVideoContext('myVideo',this)
-			// #endif
-
+			this.pageParam.infoId = e.infoId;
+			this.videoId = e.videoId;
+			this.findQuarterInfoM();
 		},
 		onShow() {
-			this.getVideoHistoryM();
-			getAllDanmu(this.videoId).then(res => {
-				if (res?.result_code == "0") {
-					if (res.data) {
-						res.data.forEach(item => {
-							var temp = {
-								text: item.content,
-								color:this.getRandomColor(),
-								time: item.videoTime
-							}
-							this.danmuList.push(temp);
-						});
-					}
-				}
-			});
-			this.showVideo = true;
+			// getAllDanmu(this.videoId).then(res => {
+			// 	if (res?.result_code == "0") {
+			// 		if (res.data) {
+			// 			res.data.forEach(item => {
+			// 				var temp = {
+			// 					text: item.content,
+			// 					color: this.getRandomColor(),
+			// 					time: item.videoTime
+			// 				}
+			// 				this.danmuList.push(temp);
+			// 			});
+			// 		}
+			// 	}
+			// });
+			if(!this.videoContext){
+				this.videoContext = uni.createVideoContext('myVideo');
+			}
 		},
 		destroyed() {
 			this.savePlayHistoryM()
@@ -84,74 +139,204 @@
 		onHide() {
 			this.savePlayHistoryM()
 		},
+		onReachBottom() {
+			this.nextVideoPage()
+		},
 		methods: {
-			savePlayHistoryM(){
+			downloadVideoM(){//视频下载
+				var video = this.videos[this.nowPlayIndex];
+				downloadVideo(video.videoId,video.videoName);
+			},
+			changeQuarter(index){//季度切换
+				this.nowQuarterIndex = index;
+				this.pageParam.quarterInfo = this.quarterInfos[index];
+				this.findVideoPhysicsInfoByPageM();
+			},
+			findQuarterInfoM(){//查询季度信息
+				findQuarterInfo(this.pageParam.infoId).then(res=>{
+					if (res?.result_code == "0") {
+						if (res.data) {
+							this.quarterInfos = res.data;
+							if(this.quarterInfos){
+								this.pageParam.quarterInfo = this.quarterInfos[0];
+							}
+						}
+						this.findVideoPhysicsInfoByPageM();
+					}
+				});
+			},
+			nextVideoPage(){
+				if(this.loadMoreStatus=="more"){
+					this.pageInfo.page++;
+					this.findVideoPhysicsInfoByPageM();
+				}
+			},
+			findVideoPhysicsInfoByPageM() {//查询视频信息
+				findVideoPhysicsInfoByPage(this.pageParam, this.pageInfo).then(res => {
+					if (res?.result_code == "0") {
+						if (res.data) {
+							if (this.pageInfo.page == "0") {
+								this.videos = res.data.content;
+								this.playVideo(this.videos[0],0);
+							} else {
+								this.videos = [...this.videos, ...res.data.content];
+							}
+							this.pageInfo = res.data.pageRequest;
+							var total = res.data.total;
+
+							if (this.videos.length >= total) {
+								this.loadMoreStatus = "noMore"
+							}
+						}
+					}
+					if (this.loadMoreStatus != "noMore") {
+						this.loadMoreStatus = "more";
+					}
+					this.location2VideoId();
+				});
+			},
+			location2VideoId(){//定位到指定videoId的视频
+				if(this.videoId){
+					var hasVideo = false;
+					for(var i=0;i<this.videos.length;i++){
+						var video = this.videos[i];
+						if(video.videoId==this.videoId){
+							hasVideo = true;
+							this.playVideo(video,i);
+							break;
+						}
+					}
+					if(!hasVideo&&this.loadMoreStatus!="noMore"){
+						this.nextVideoPage()
+					}
+				}
+			},
+			playVideo(video,index){//视频播放
+				this.getVideoHistoryM();
+			
+				this.nowPlayIndex = index;
+				var videoUrl = getVideoUrl(video.videoId);
+				this.videoUrl =  encodeURI(videoUrl) 
+			},
+			play(){//播放按钮
+				this.playing = true;
+				this.autoPlaying = true;
+				this.videoContext.play();
+			},
+			pause(){//暂停按钮
+				this.playing = false;
+				this.videoContext.pause();
+			},
+			next(){//下一集
+				this.savePlayHistoryM();//保存历史记录
+				this.nextVideoPlay()
+			},
+
+			savePlayHistoryM() {
+				var mathDuration = Math.trunc(this.duration);
+				var mathCurrent = Math.trunc(this.currentPlayTime);
+				//播放完成后
+				if (mathDuration === mathCurrent&&mathDuration!=0) {
+					this.currentPlayTime = 0;//如果播放结束了，那么就将当前时间重置为0，防止下次跳过了此视频
+				}
 				var param = {
-					loginName:this.loginName,
-					videoId:this.videoId,
-					range:this.currentPlayTime
+					loginName: this.loginName,
+					videoId: this.videos[this.nowPlayIndex].videoId,
+					range: this.currentPlayTime
 				}
 				savePlayHistory(param);
 			},
-			getVideoHistoryM(){
+			getVideoHistoryM() {
 				var param = {
-					loginName:this.loginName,
-					videoId:this.videoId
+					loginName: this.loginName,
+					videoId: this.videos[this.nowPlayIndex].videoId
 				}
-				getVideoHistory(param).then(res=>{
+				getVideoHistory(param).then(res => {
 					if (res?.result_code == "0") {
 						if (res.data) {
 							var history = res.data;
-							this.startTime = history.range;
+							this.videoConfig.startTime = history.playTime;
+							this.videoContext.seek(this.videoConfig.startTime); //跳转到指定秒		
 						}
 					}
-					// console.log(this.startTime)
 				});
 			},
-			loadedMetaData(e){
-				const { duration } = e.detail
+			loadedMetaData(e) {//视频加载完毕
+				const {
+					duration
+				} = e.detail
 				// 记录视频总时间
 				this.duration = duration
-				// 回调
-				this.$emit('loadcomplete')
-			},
-			timeUpdate(e) { //播放进度发生变化时
-				// 拖拽时不需要进行更新
-				if (!this.isDrag) {
-					// 更新进度
-					const {
-						currentTime
-					} = e.detail
-					this.currentPlayTime = currentTime
-					// 播放完成
-					if (Math.trunc(currentTime) === Math.trunc(this.duration)) {
-						// this.currentPlayTime = 0;//播放完成，将时间重置，以便下次从头开始播放
-						this.$emit('playcomplete', e)
+				if(!this.autoPlaying){
+					if(!this.firstVideo&&this.videoConfig.isAutoPlay){//非第一个视频，自动播放
+						this.play();
 					}
-					// 返回当前播放时间
-					this.$emit('timeupdate', e)
+				}
+				this.videoContext.playbackRate(1.5);
+			},
+			onProgressVideo(e){
+				const {buffered} = e.detail;
+				if(buffered>4){//视频加载了百分之 就自动播放
+					if(!this.firstVideo&&this.videoConfig.isAutoPlay){//非第一个视频，自动播放
+						this.play();
+					}
 				}
 			},
-			sendDanmu: function() {
+			timeUpdate(e) { //播放进度发生变化时
+				// 更新进度
+				const {
+					currentTime,duration
+				} = e.detail
+				this.currentPlayTime = currentTime;
+				
+				var mathDuration = Math.trunc(this.duration);
+				var mathCurrent = Math.trunc(currentTime);
+				//播放完成后
+				if (mathDuration === mathCurrent&&mathDuration!=0) {
+					//播放结束后保存历史记录
+					this.savePlayHistoryM()
+					if(!this.videoConfig.isLoop){//没有设置单集循环播放，则自动播放下一集
+						this.nextVideoPlay();
+					}
+				}
+			},
+			nextVideoPlay(){//下一集播放
+				this.nowPlayIndex ++;
+				this.nowPlayIndex = this.nowPlayIndex%this.videos.length;
+				this.firstVideo = false;//第一个视频
+				this.playing = false;//正在自动播放,false不是
+				this.playVideo(this.videos[this.nowPlayIndex],this.nowPlayIndex);
+			},
+			sendDanmu: function() {//发送弹幕
 				this.videoContext.sendDanmu({
 					text: this.danmuValue,
 					color: this.getRandomColor()
 				});
-				
+
 				var param = {
-					videoId:this.videoId,
-					content:this.danmuValue,
-					videoTime:this.currentPlayTime
+					videoId: this.videoId,
+					content: this.danmuValue,
+					videoTime: this.currentPlayTime
 				}
 				addDanmu2Video(param).then();
-				
+
 				this.danmuValue = '';
 			},
 			videoErrorCallback: function(e) {
-				uni.showModal({
-					content: "加载失败",
-					showCancel: false
-				})
+				// uni.showToast({
+				// 	title:"加载失败"
+				// })
+				// uni.showModal({
+				// 	content: "加载失败",
+				// 	showCancel: false
+				// })
+			},
+			changeSwitch(type,event){//调整switch
+				if(type=="autoplay"){
+					this.videoConfig.isAutoPlay = event.detail.value;
+				}else if(type=="loop"){
+					this.videoConfig.isLoop = event.detail.value;
+				}
 			},
 			getRandomColor: function() {
 				const rgb = []
@@ -168,5 +353,34 @@
 
 <style lang="less" scoped>
 	
-
+	.click_active{
+		opacity: 0.7;
+		background-color: lightblue;
+	}
+	
+	.video_view {
+		display: flex;
+		flex-direction: column;
+		padding: 20rpx;
+		margin: 10rpx;
+		
+		border-bottom: 1px solid lightgrey;
+	}
+	
+	.video_view:active{
+		.click_active()
+	}
+	
+	.btn_img{
+		width: 40rpx;
+		height: 40rpx;
+	}
+	
+	.video_switch_view{
+		padding: 20rpx;
+		display: flex;
+		justify-content: space-between;
+		padding-left: 30rpx;
+		border-bottom: 1px solid lightgray;
+	}
 </style>

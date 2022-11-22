@@ -18,15 +18,12 @@
 
 		<!--历史记录-->
 		<view>
-			<view v-for="(historiesInner,historyTimeFmt) in mapDataList" :key="historyTimeFmt">
-				<view style="background-color: #F6F8FB;">
-					<text style="font-size: 12px;font-weight: 400;color: #757575;">{{historyTimeFmt}}</text>
-				</view>
-				<uni-list-item v-for="(history,index) in historiesInner" :key="index" :title="history.videoInfoVo.name"
-					:note="history.videoInfoVo.filePath" :rightText="''+history.range" clickable link
-					@click="toPlayVideoPage(history.videoInfoVo.vid)">
-				</uni-list-item>
-			</view>
+			<uni-list-item v-for="(history,index) in histories" :key="index" :title="history.videoPhysicsInfoVo.videoName"
+				:note="history.videoInfoVo.videoName"
+				:rightText="''+history.playTimeVis" clickable link
+				@click="toPlayVideoPage(history.videoPhysicsInfoVo.infoId,history.videoPhysicsInfoVo.videoId)">
+			</uni-list-item>
+			<uni-load-more :status="loadMoreStatus"></uni-load-more>
 		</view>
 	</view>
 </template>
@@ -37,9 +34,16 @@
 		data() {
 			return {
 				histories: [], //播放历史记录
-				mapDataList: {},
 				loginName: uni.getStorageSync("loginName"),
 				showChangeLoginNameDialog: false,
+				pageInfo:{
+					page:0,
+					size:10,
+				},
+				pageParam:{
+					accountName:''
+				},
+				loadMoreStatus:'more',//noMore,loading
 			}
 		},
 		onLoad() {
@@ -47,7 +51,14 @@
 			this.getAllVideoHistoryM()
 		},
 		onPullDownRefresh() {
+			this.pageInfo.page = 0;
 			this.getAllVideoHistoryM()
+		},
+		onReachBottom() {
+			if(this.loadMoreStatus=="more"){
+				this.pageInfo.page++;
+				this.getAllVideoHistoryM();
+			}
 		},
 		methods: {
 			toGamePage(){
@@ -55,9 +66,9 @@
 					url:"/pages/games/index"
 				})
 			},
-			toPlayVideoPage(vId) { //前往播放视频页面
+			toPlayVideoPage(infoId,videoId) { //前往播放视频页面
 				uni.navigateTo({
-					url: '/pages/video/play?vId=' + vId
+					url: '/pages/video/play?infoId=' + infoId+"&videoId="+videoId
 				})
 			},
 			changeLoginNameDialog() {
@@ -74,31 +85,30 @@
 				this.$refs.popup.close();
 			},
 			getAllVideoHistoryM(){
-				getAllVideoHistory(this.loginName).then(res=>{
+				this.pageParam.accountName = this.loginName;
+				getAllVideoHistory(this.pageParam,this.pageInfo).then(res=>{
 					if (res?.result_code == "0") {
 						if (res.data) {
-							this.histories = res.data;
-							this.mapDataList = this.handleListToMap(this.histories);
+							if(this.pageInfo.page=="0"){
+								this.histories = res.data.content;
+							}else{
+								this.histories = [...this.histories,...res.data.content];
+							}
+							this.pageInfo = res.data.pageRequest;
+							var total = res.data.total;
+							
+							if(this.histories.length>=total){
+								this.loadMoreStatus = "noMore"
+							}
+							
 						}
+					}
+					if(this.loadMoreStatus!="noMore"){
+						this.loadMoreStatus = "more";
 					}
 					uni.stopPullDownRefresh()
 				});
 			},
-			handleListToMap(list) {
-				//此处需要把数据分为 Map<时间，List<列表数据>>
-				let map = {};
-				list.forEach(item => {
-					let key = item.historyTimeFmt;
-					if (!map[key]) {
-						let list = [];
-						list.push(item);
-						map[key] = list;
-					} else {
-						map[key].push(item);
-					}
-				});
-				return map;
-			}
 		}
 	}
 </script>

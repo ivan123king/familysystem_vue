@@ -2,35 +2,28 @@
 	<view style="padding: 20rpx 10rpx;">
 		<view>
 			<text>Hi! {{loginName}}</text>
-		</view>
-		
-		<view style="margin-top: 20rpx;">
-			<button @click="getRootDirectoryM">恢复</button>
-			<button @click="reback">回退</button>
+			<uni-search-bar @confirm="searchVideo" v-model="pageParam.videoName" placeholder="输入视频名称"></uni-search-bar>
 		</view>
 
-		<view style="margin-top: 20rpx;">
-			<view v-for="(item,index) in directories.childDirList" :key="item.filePath">
-				<view style="padding:20rpx 10rpx;" @click="toNext(item,index)">
-					<view style="display: flex;flex-direction: column;align-items:flex-start;">
-						<label>{{item.name}}</label>
-						<label style="font-size: 12px;color: lightgrey;">目录</label>
-					</view>
-				</view>
+		<!--类别-->
+		<view>
+			<view v-for="(category,index) in categories" :key="index" class="category_view" 
+			:style="{'background-color': category.categoryId==pageParam.categoryId? 'lightgrey':''}">
+				<text @click="toVideoListPage(category)">
+					{{category.categoryName}}
+				</text>
 			</view>
-			<view style="border-bottom: 1px solid lightgrey;"/>
-			
-			<view v-for="(item,index) in directories.videoInfoList" :key="item.filePath">
-				<view style="padding:20rpx 10rpx;display: flex;align-items: center;" @click="toPlay(item)">
-					<image src="/static/video/Cover.jpg"
-						style="width:200rpx;height: 140rpx;margin-right: 20rpx;vertical-align: middle;"
-						mode="aspectFit" />
-					<view style="display: inline-block;width:500rpx;vertical-align: middle;">
-						<label>{{item.name}}</label>
-					</view>
-				</view>
+		</view>
+		
+		<hr/>
+		
+		<!--视频-->
+		<view>
+			<view v-for="(video,index) in videos" :key="index" class="video_view" style="" @click="toPlay(video)">
+				<text>{{video.videoName}}</text>
+				<text style="font-size: 12px;color: lightgrey">{{video.videoType}}</text>
 			</view>
-					
+			<uni-load-more :status="loadMoreStatus"></uni-load-more>
 		</view>
 
 	</view>
@@ -38,23 +31,42 @@
 
 <script>
 	import {
-		getRootDirectory
+		findAllCategories,findVideoInfoByPage
 	} from '@/apis/index.js';
 
 	export default {
 		data() {
 			return {
-				directories: {},
-				parentDir: [],
-				nowFilePath: '',
-				loginName:uni.getStorageSync("loginName")
+				categories: [], //类别
+				videos:[],//视频
+				loginName: uni.getStorageSync("loginName"),
+				pageInfo:{
+					page:0,
+					size:10,
+				},
+				pageParam:{
+					videoName:''
+				},
+				loadMoreStatus:"more",
+				nowChooseCategoryId:'',
 			}
 		},
 		onLoad() {
-			this.getRootDirectoryM()
+			this.findAllCategoriesM();
+			this.findVideoInfoByPageM();
 		},
 		onShow() {
-			this.loginName=uni.getStorageSync("loginName")
+			this.loginName = uni.getStorageSync("loginName")
+		},
+		onReachBottom() {
+			if(this.loadMoreStatus=="more"){
+				this.pageInfo.page++;
+				this.findVideoInfoByPageM();
+			}
+		},
+		onPullDownRefresh() {
+			this.pageInfo.page = 0;
+			this.findVideoInfoByPageM();
 		},
 		computed: {
 			winHeight() {
@@ -64,50 +76,89 @@
 		methods: {
 			toPlay(video) {
 				uni.navigateTo({
-					url: '/pages/video/play?vId=' + video.vid
+					url: '/pages/video/play?infoId=' + video.infoId
 				})
 			},
-			reback() {
-				this.directories = this.parentDir.pop();
+			searchVideo(){
+				this.pageInfo.page = 0;
+				this.findVideoInfoByPageM();
 			},
-			toNext(dirInfo, index) {
-				var nowParentDir = this.deepClone(this.directories);
-				this.parentDir.push(nowParentDir);
-				this.directories = dirInfo;
+			toVideoListPage(category) {
+				this.pageInfo.page = 0;
+				this.pageParam.categoryId = this.pageParam.categoryId==category.categoryId? '':category.categoryId;
+				this.findVideoInfoByPageM()
 			},
-			getRootDirectoryM() {
-				this.nowFilePath = encodeURIComponent(this.nowFilePath);
-				getRootDirectory(this.nowFilePath).then(res => {
+			findAllCategoriesM() {
+				findAllCategories().then(res => {
 					if (res?.result_code == "0") {
 						if (res.data) {
-							this.directories = res.data;
-							this.parentDir.push(res.data);
+							this.categories = res.data;
 						}
 					}
 				});
 			},
-			deepClone(obj) {
-				//判断拷贝的要进行深拷贝的是数组还是对象，是数组的话进行数组拷贝，对象的话进行对象拷贝
-				var objClone = Array.isArray(obj) ? [] : {};
-				//进行深拷贝的不能为空，并且是对象或者是
-				if (obj && typeof obj === "object") {
-					for (var key in obj) {
-						if (obj.hasOwnProperty(key)) {
-							if (obj[key] && typeof obj[key] === "object") {
-								objClone[key] = this.deepClone(obj[key]);
-							} else {
-								objClone[key] = obj[key];
+			findVideoInfoByPageM(){
+				this.loadMoreStatus = "loading"
+				findVideoInfoByPage(this.pageParam,this.pageInfo).then(res=>{
+					if (res?.result_code == "0") {
+						if (res.data) {
+							if(this.pageInfo.page=="0"){
+								this.videos = res.data.content;
+							}else{
+								this.videos = [...this.videos,...res.data.content];
+							}
+							this.pageInfo = res.data.pageRequest;
+							var total = res.data.total;
+							
+							if(this.videos.length>=total){
+								this.loadMoreStatus = "noMore"
 							}
 						}
 					}
-				}
-				return objClone;
-			}
+					if(this.loadMoreStatus!="noMore"){
+						this.loadMoreStatus = "more";
+					}
+					
+					uni.stopPullDownRefresh();//下拉刷新时
+				});
+			},
 		},
 		components: {}
 	}
 </script>
 
 <style scoped lang="less">
-
+	.click_active{
+		opacity: 0.7;
+		background-color: lightblue;
+	}
+	
+	.category_view {
+		display: inline-block;
+		padding: 20rpx;
+		margin: 10rpx;
+		border: 1px solid lightgray;
+		border-radius: 15rpx;
+	}
+	
+	.category_view:active{
+		.click_active()
+	}
+	
+	
+	.video_view{
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
+		
+		padding: 20rpx;
+		margin: 10rpx;
+		
+		border-bottom: 1px solid lightgrey;
+	}
+	
+	.video_view:active{
+		.click_active()
+	}
+	
 </style>
