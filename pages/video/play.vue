@@ -10,8 +10,11 @@
 			:autoplay="videoConfig.isAutoPlay"
 			:initial-time="videoConfig.startTime"
 			:loop="videoConfig.isLoop"
-			controls style="width: 100%;"></video>
-
+			controls style="width: 100%;" :style="{opacity:imageOpicaty}"></video>
+		
+		<view style="z-index: -1;position: fixed;top: 0;" :style="{opacity:imageOpicaty}" v-if="videoConfig.isMoYu">
+			<image src="/static/video/Cover.jpg" style="width: 420px;height: 270px;"></image>
+		</view>
 		
 		<!--操作按钮-->
 		<view style="padding:20rpx;margin-bottom: 10rpx;">
@@ -24,23 +27,36 @@
 			
 			<uni-collapse ref="collapse" style="margin-top: 10px;">
 				<uni-collapse-item title="播放设置" >
-					<view style="margin-top: 20rpx;padding: 20rpx;">
-						<label>播放速率</label>
-						<slider :value="videoConfig.playRate" @change="playRateChange" show-value step="0.5" min="0.5" max="1.5" />
+					<view style="border-bottom: 1px solid;">
+						<view class="video_switch_view" style="border: none;">
+							<label>广告模式</label>
+							<switch :checked="videoConfig.isMoYu" @change="changeSwitch('moyu',$event)" color="#FFCC33" style="transform:scale(0.7)"/>
+						</view>
+						<view style="margin-top: 20rpx;padding: 20rpx;" v-if="videoConfig.isMoYu">
+							<label>透明度</label>
+							<slider :value="imageOpicaty" @change="imageOpicatyChange" show-value step="0.1" min="0" max="1" />
+						</view>
 					</view>
 					
-					<view class="video_switch_view">
-						<label>自动播放</label>
-						<switch :checked="videoConfig.isAutoPlay" @change="changeSwitch('autoplay',$event)" color="#FFCC33" style="transform:scale(0.7)"/>
+					<view v-show="!videoConfig.isMoYu">
+						<view style="margin-top: 20rpx;padding: 20rpx;">
+							<label>播放速率</label>
+							<slider :value="videoConfig.playRate" @change="playRateChange" show-value step="0.5" min="0.5" max="1.5" />
+						</view>
+						<view class="video_switch_view">
+							<label>自动播放</label>
+							<switch :checked="videoConfig.isAutoPlay" @change="changeSwitch('autoplay',$event)" color="#FFCC33" style="transform:scale(0.7)"/>
+						</view>
+						<view class="video_switch_view">
+							<label>循环播放</label>
+							<switch :checked="videoConfig.isLoop" @change="changeSwitch('loop',$event)" color="#FFCC33" style="transform:scale(0.7)"/>
+						</view>
+						<view class="video_switch_view">
+							<label>保存播放历史</label>
+							<switch :checked="videoConfig.isSaveHistory" @change="changeSwitch('history',$event)" color="#FFCC33" style="transform:scale(0.7)"/>
+						</view>
 					</view>
-					<view class="video_switch_view">
-						<label>循环播放</label>
-						<switch :checked="videoConfig.isLoop" @change="changeSwitch('loop',$event)" color="#FFCC33" style="transform:scale(0.7)"/>
-					</view>
-					<view class="video_switch_view">
-						<label>保存播放历史</label>
-						<switch :checked="videoConfig.isSaveHistory" @change="changeSwitch('history',$event)" color="#FFCC33" style="transform:scale(0.7)"/>
-					</view>
+					
 				</uni-collapse-item>
 				
 			</uni-collapse>
@@ -49,7 +65,7 @@
 		</view>
 
 		<!--合集列表-->
-		<view>
+		<view v-show="!videoConfig.isMoYu">
 			<!--季度信息-->
 			<view style="display: flex;padding: 20rpx;" v-if="quarterInfos.length>0">
 				<text v-for="(quarterInfo,index) in quarterInfos" :key="index"
@@ -90,6 +106,7 @@
 					isSaveHistory:true,//是否保存历史记录
 					startTime:0,//开始时间,
 					playRate:1,//播放速率 0.5,1,1.5
+					isMoYu:false,//是否开启摸鱼模式
 				},
 				loginName: uni.getStorageSync("loginName"),
 				videoUrl: '',
@@ -115,6 +132,7 @@
 				playing:false,//
 				autoPlaying:false,//代码设置自动播放，true正在播放
 				videoId:'',//从历史记录跳进来的才有值
+				imageOpicaty:0.5,//图片透明度
 			}
 		},
 		onLoad(e) {
@@ -149,6 +167,9 @@
 			}
 		},
 		methods: {
+			enterKey(e){
+				console.log(e)
+			},
 			downloadVideoM(){//视频下载
 				var video = this.videos[this.nowPlayIndex];
 				downloadVideo(video.videoId,video.videoName);
@@ -170,6 +191,10 @@
 						this.findVideoPhysicsInfoByPageM();
 					}
 				});
+			},
+			imageOpicatyChange(e){
+				const {value} = e.detail;
+				this.imageOpicaty = value;
 			},
 			playRateChange(e){
 				const {value} = e.detail;
@@ -259,6 +284,9 @@
 				savePlayHistory(param);
 			},
 			getVideoHistoryM() {
+				//如果不启用播放历史记录，那么也没必要获取历史记录
+				if(!this.videoConfig.isSaveHistory) return;
+				
 				var param = {
 					loginName: this.loginName,
 					videoId: this.videos[this.nowPlayIndex].videoId
@@ -343,12 +371,31 @@
 				// })
 			},
 			changeSwitch(type,event){//调整switch
-				if(type=="autoplay"){
-					this.videoConfig.isAutoPlay = event.detail.value;
-				}else if(type=="loop"){
-					this.videoConfig.isLoop = event.detail.value;
-				}else if(type=="history"){
-					this.videoConfig.isSaveHistory = event.detail.value;
+				switch(type){
+					case "autoplay":
+						this.videoConfig.isAutoPlay = event.detail.value;
+					break;
+					case "loop":
+						this.videoConfig.isLoop = event.detail.value;
+					break;
+					case "history":
+						this.videoConfig.isSaveHistory = event.detail.value;
+					break;
+					case "moyu":
+						this.videoConfig.isMoYu = event.detail.value;
+						this.moyu()
+					break;
+				}
+			},
+			moyu(){
+				if(this.videoConfig.isMoYu){//开始摸鱼
+					uni.setNavigationBarTitle({
+						title:"Java 多线程详解"
+					})
+				}else{//结束摸鱼，将参数还原
+					uni.setNavigationBarTitle({
+						title:"视频播放"
+					})
 				}
 			},
 			getRandomColor: function() {
