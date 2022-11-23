@@ -29,14 +29,22 @@
 				<image class="btn_img" src="/static/video//dowload.png" mode="aspectFit" @click="downloadVideoM"/>
 				<image class="btn_img" src="/static/video//next.png" mode="aspectFit" @click="next"/>
 			</view>
+			<view style="margin-top: 20rpx;">
+				<label>播放速率</label>
+				<slider :value="videoConfig.playRate" @change="playRateChange" show-value step="0.5" min="0.5" max="1.5" />
+			</view>
 			
 			<view class="video_switch_view">
-				<text>自动播放</text>
-				<switch @change="changeSwitch('autoplay',$event)" color="#FFCC33" style="transform:scale(0.7)"/>
+				<label>自动播放</label>
+				<switch :checked="videoConfig.isAutoPlay" @change="changeSwitch('autoplay',$event)" color="#FFCC33" style="transform:scale(0.7)"/>
 			</view>
 			<view class="video_switch_view">
-				<text>循环播放</text>
-				<switch @change="changeSwitch('loop',$event)" color="#FFCC33" style="transform:scale(0.7)"/>
+				<label>循环播放</label>
+				<switch :checked="videoConfig.isLoop" @change="changeSwitch('loop',$event)" color="#FFCC33" style="transform:scale(0.7)"/>
+			</view>
+			<view class="video_switch_view">
+				<label>保存播放历史</label>
+				<switch :checked="videoConfig.isSaveHistory" @change="changeSwitch('history',$event)" color="#FFCC33" style="transform:scale(0.7)"/>
 			</view>
 		</view>
 
@@ -79,7 +87,9 @@
 				videoConfig:{//视频配置信息
 					isAutoPlay:false,
 					isLoop:false,
+					isSaveHistory:true,//是否保存历史记录
 					startTime:0,//开始时间,
+					playRate:1,//播放速率 0.5,1,1.5
 				},
 				loginName: uni.getStorageSync("loginName"),
 				videoUrl: '',
@@ -110,6 +120,13 @@
 			}
 		},
 		onLoad(e) {
+			var videoConfig = uni.getStorageSync("videoConfig");
+			if(videoConfig){
+				this.videoConfig.isAutoPlay = videoConfig.isAutoPlay;
+				this.videoConfig.isLoop = videoConfig.isLoop;
+				this.videoConfig.isSaveHistory = videoConfig.isSaveHistory;
+			}
+			
 			this.pageParam.infoId = e.infoId;
 			this.videoId = e.videoId;
 			this.findQuarterInfoM();
@@ -142,6 +159,11 @@
 		onReachBottom() {
 			this.nextVideoPage()
 		},
+		watch:{
+			'videoConfig.playRate'(){
+				this.videoContext.playbackRate(this.videoConfig.playRate);
+			}
+		},
 		methods: {
 			downloadVideoM(){//视频下载
 				var video = this.videos[this.nowPlayIndex];
@@ -164,6 +186,10 @@
 						this.findVideoPhysicsInfoByPageM();
 					}
 				});
+			},
+			playRateChange(e){
+				const {value} = e.detail;
+				this.videoConfig.playRate = value;
 			},
 			nextVideoPage(){
 				if(this.loadMoreStatus=="more"){
@@ -221,6 +247,7 @@
 			play(){//播放按钮
 				this.playing = true;
 				this.autoPlaying = true;
+				this.videoContext.playbackRate(this.videoConfig.playRate);
 				this.videoContext.play();
 			},
 			pause(){//暂停按钮
@@ -233,6 +260,7 @@
 			},
 
 			savePlayHistoryM() {
+				if(!this.videoConfig.isSaveHistory) return;
 				var mathDuration = Math.trunc(this.duration);
 				var mathCurrent = Math.trunc(this.currentPlayTime);
 				//播放完成后
@@ -272,7 +300,6 @@
 						this.play();
 					}
 				}
-				this.videoContext.playbackRate(1.5);
 			},
 			onProgressVideo(e){
 				const {buffered} = e.detail;
@@ -336,6 +363,8 @@
 					this.videoConfig.isAutoPlay = event.detail.value;
 				}else if(type=="loop"){
 					this.videoConfig.isLoop = event.detail.value;
+				}else if(type=="history"){
+					this.videoConfig.isSaveHistory = event.detail.value;
 				}
 			},
 			getRandomColor: function() {

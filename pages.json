@@ -58,6 +58,15 @@
             }
             
         }
+        ,{
+            "path" : "pages/mine/setting",
+            "style" :                                                                                    
+            {
+                "navigationBarTitleText": "设置",
+                "enablePullDownRefresh": false
+            }
+            
+        }
     ],
 	"globalStyle": {
 		"navigationBarTextStyle": "black",

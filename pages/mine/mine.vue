@@ -1,13 +1,16 @@
 <template>
-	<view style="padding: 20rpx 10rpx;">
+	<view style="padding: 20rpx 20rpx;">
 		<!--游戏-->
-		<view>
+		<!-- <view>
 			<button @click="toGamePage" style="margin-top: 20rpx;">游戏界面</button>
-		</view>
+		</view> -->
 		
-		<view>
-			<text>当前账户：{{loginName}}</text>
-			<button @click="changeLoginNameDialog" style="margin-top: 20rpx;">切换账户</button>
+		<!--账户信息-->
+		<view style="margin-bottom: 10rpx;border-bottom: 1px solid lightgray">
+			<view style="display: flex;justify-content: space-between;padding: 10rpx 0rpx;">
+				<text>当前账户：{{loginName}}</text>
+				<text @click="changeLoginNameDialog" style="font-size: 13px;color: grey">切换账户</text>
+			</view>
 
 			<uni-popup ref="popup" type="dialog">
 				<uni-popup-dialog mode="input" message="成功" title="切换账户" :duration="2000" :before-close="true" @close="close"
@@ -15,12 +18,28 @@
 			</uni-popup>
 
 		</view>
+		
+		<!--通用设置-->
+		<view style="padding: 20rpx 60rpx;display: flex;justify-content: space-around;">
+			<view class="oper_view" @click="toPage('setting')">
+				<image src="/static/mine/setting.png" class="oper_img" mode="aspectFit"/>
+				<label class="oper_label">设置</label>
+			</view>
+			<view class="oper_view" @click="toPage('game')">
+				<image src="/static/mine/game.png" class="oper_img"  mode="aspectFit"/>
+				<label class="oper_label">游戏</label>
+			</view>
+			
+		</view>
 
 		<!--历史记录-->
-		<view>
+		<view style="">
+			<view style="margin-bottom: 10rpx;">
+				<label style="font-size: 17px;font-weight: 600;">历史记录</label>
+			</view>
 			<uni-list-item v-for="(history,index) in histories" :key="index" :title="history.videoPhysicsInfoVo.videoName"
 				:note="history.videoInfoVo.videoName"
-				:rightText="''+history.playTimeVis" clickable link
+				:rightText="''+history.playTimeVis+'/'+history.videoPhysicsInfoVo.videoLongTimeVis" clickable link
 				@click="toPlayVideoPage(history.videoPhysicsInfoVo.infoId,history.videoPhysicsInfoVo.videoId)">
 			</uni-list-item>
 			<uni-load-more :status="loadMoreStatus"></uni-load-more>
@@ -61,10 +80,17 @@
 			}
 		},
 		methods: {
-			toGamePage(){
-				uni.navigateTo({
-					url:"/pages/games/index"
-				})
+			toPage(type){//前往设置页面
+				if(type=="setting"){
+					uni.navigateTo({
+						url:'/pages/mine/setting'
+					})
+				}else if(type=="game"){
+					uni.navigateTo({
+						url:"/pages/games/index"
+					})
+				}
+				
 			},
 			toPlayVideoPage(infoId,videoId) { //前往播放视频页面
 				uni.navigateTo({
@@ -113,6 +139,24 @@
 	}
 </script>
 
-<style>
-
+<style lang="less" scoped>
+	.oper_view{
+		display: inline-flex;
+		flex-direction: column;
+		align-items: center;
+		.oper_img{
+			width: 30px;
+			height: 30px;
+			margin-bottom: 10rpx;
+		}
+		
+		.oper_label{
+			font-size: 12px;
+			color: gray;
+		}
+	}
+	
+	.oper_view:active{
+		opacity: 0.5;
+	}
 </style>
