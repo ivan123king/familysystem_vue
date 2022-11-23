@@ -10,16 +10,8 @@
 			:autoplay="videoConfig.isAutoPlay"
 			:initial-time="videoConfig.startTime"
 			:loop="videoConfig.isLoop"
-			:danmu-list="danmuList" enable-danmu danmu-btn controls style="width: 100%;"></video>
-		
-		<!--弹幕-->
-		<view style="padding: 20rpx;">
-			<view style="margin-top: 20rpx;display: flex;align-items: center;justify-content: space-between;">
-				<input v-model="danmuValue" type="text" placeholder="在此处输入弹幕内容" style="width: 50%;" />
-				<button @click="sendDanmu"
-					style="font-size: 15px;background-color: cornflowerblue;color: #fff;">发送弹幕</button>
-			</view>
-		</view>
+			controls style="width: 100%;"></video>
+
 		
 		<!--操作按钮-->
 		<view style="padding:20rpx;margin-bottom: 10rpx;">
@@ -29,23 +21,31 @@
 				<image class="btn_img" src="/static/video//dowload.png" mode="aspectFit" @click="downloadVideoM"/>
 				<image class="btn_img" src="/static/video//next.png" mode="aspectFit" @click="next"/>
 			</view>
-			<view style="margin-top: 20rpx;">
-				<label>播放速率</label>
-				<slider :value="videoConfig.playRate" @change="playRateChange" show-value step="0.5" min="0.5" max="1.5" />
-			</view>
 			
-			<view class="video_switch_view">
-				<label>自动播放</label>
-				<switch :checked="videoConfig.isAutoPlay" @change="changeSwitch('autoplay',$event)" color="#FFCC33" style="transform:scale(0.7)"/>
-			</view>
-			<view class="video_switch_view">
-				<label>循环播放</label>
-				<switch :checked="videoConfig.isLoop" @change="changeSwitch('loop',$event)" color="#FFCC33" style="transform:scale(0.7)"/>
-			</view>
-			<view class="video_switch_view">
-				<label>保存播放历史</label>
-				<switch :checked="videoConfig.isSaveHistory" @change="changeSwitch('history',$event)" color="#FFCC33" style="transform:scale(0.7)"/>
-			</view>
+			<uni-collapse ref="collapse" style="margin-top: 10px;">
+				<uni-collapse-item title="播放设置" >
+					<view style="margin-top: 20rpx;padding: 20rpx;">
+						<label>播放速率</label>
+						<slider :value="videoConfig.playRate" @change="playRateChange" show-value step="0.5" min="0.5" max="1.5" />
+					</view>
+					
+					<view class="video_switch_view">
+						<label>自动播放</label>
+						<switch :checked="videoConfig.isAutoPlay" @change="changeSwitch('autoplay',$event)" color="#FFCC33" style="transform:scale(0.7)"/>
+					</view>
+					<view class="video_switch_view">
+						<label>循环播放</label>
+						<switch :checked="videoConfig.isLoop" @change="changeSwitch('loop',$event)" color="#FFCC33" style="transform:scale(0.7)"/>
+					</view>
+					<view class="video_switch_view">
+						<label>保存播放历史</label>
+						<switch :checked="videoConfig.isSaveHistory" @change="changeSwitch('history',$event)" color="#FFCC33" style="transform:scale(0.7)"/>
+					</view>
+				</uni-collapse-item>
+				
+			</uni-collapse>
+			
+			
 		</view>
 
 		<!--合集列表-->
@@ -93,8 +93,6 @@
 				},
 				loginName: uni.getStorageSync("loginName"),
 				videoUrl: '',
-				danmuList: [],
-				danmuValue: '',
 				currentPlayTime: 0, //当前播放时长
 				duration: 0,// 总时间
 				showVideo: false, //如果弹幕还没加载，先加载video组件，后续的弹幕就不会展示了
@@ -132,20 +130,6 @@
 			this.findQuarterInfoM();
 		},
 		onShow() {
-			// getAllDanmu(this.videoId).then(res => {
-			// 	if (res?.result_code == "0") {
-			// 		if (res.data) {
-			// 			res.data.forEach(item => {
-			// 				var temp = {
-			// 					text: item.content,
-			// 					color: this.getRandomColor(),
-			// 					time: item.videoTime
-			// 				}
-			// 				this.danmuList.push(temp);
-			// 			});
-			// 		}
-			// 	}
-			// });
 			if(!this.videoContext){
 				this.videoContext = uni.createVideoContext('myVideo');
 			}
