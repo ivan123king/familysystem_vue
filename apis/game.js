@@ -5,3 +5,7 @@ const root = "/baseUrl/";
 
 export default root;
 
+export function getImages(imageTotal) {
+	var url = root + 'games/getImages/'+imageTotal;
+	return http.GET(url);
+}

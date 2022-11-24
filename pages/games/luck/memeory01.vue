@@ -19,7 +19,7 @@
 </template>
 
 <script>
-	import {getImages} from '@/apis/index.js'; 
+	import {getImages} from '@/apis/game.js'; 
 	export default {
 		data() {
 			return {

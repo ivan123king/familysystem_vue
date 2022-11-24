@@ -9,9 +9,6 @@
 </template>
 
 <script>
-	import {
-		getRootDirectory
-	} from '@/apis/index.js';
 
 	export default {
 		data() {

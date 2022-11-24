@@ -32,7 +32,7 @@
 <script>
 	import {
 		findAllCategories,findVideoInfoByPage
-	} from '@/apis/index.js';
+	} from '@/apis/video.js';
 
 	export default {
 		data() {

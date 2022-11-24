@@ -30,6 +30,11 @@
 				<label class="oper_label">游戏</label>
 			</view>
 			
+			<view class="oper_view" @click="toPage('book')">
+				<image src="/static/mine/book.png" class="oper_img"  mode="aspectFit"/>
+				<label class="oper_label">图书</label>
+			</view>
+			
 		</view>
 
 		<!--历史记录-->
@@ -48,7 +53,7 @@
 </template>
 
 <script>
-	import {getAllVideoHistory} from '@/apis/index.js'
+	import {getAllVideoHistory} from '@/apis/video.js'
 	export default {
 		data() {
 			return {
@@ -81,13 +86,21 @@
 		},
 		methods: {
 			toPage(type){//前往设置页面
-				if(type=="setting"){
+				var url = "";
+				switch(type){
+					case "setting":
+					url = '/pages/mine/setting';
+					break;
+					case "game":
+					url = '/pages/games/index';
+					break;
+					case "book":
+					url = '/pages/book/books';
+					break;
+				}
+				if(url){
 					uni.navigateTo({
-						url:'/pages/mine/setting'
-					})
-				}else if(type=="game"){
-					uni.navigateTo({
-						url:"/pages/games/index"
+						url:url
 					})
 				}
 				

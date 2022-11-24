@@ -96,7 +96,7 @@
 		findQuarterInfo,
 		findVideoPhysicsInfoByPage,
 		downloadVideo
-	} from '@/apis/index.js'
+	} from '@/apis/video.js'
 	export default {
 		data() {
 			return {
