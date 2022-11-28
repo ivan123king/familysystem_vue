@@ -132,7 +132,7 @@
 				playing:false,//
 				autoPlaying:false,//代码设置自动播放，true正在播放
 				videoId:'',//从历史记录跳进来的才有值
-				imageOpicaty:0.5,//图片透明度
+				imageOpicaty:1,//图片透明度
 			}
 		},
 		onLoad(e) {
