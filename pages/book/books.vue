@@ -1,163 +1,84 @@
 <template>
 	<view>
-		<view style="padding: 20rpx 40rpx;" 
-			@longpress="showSettingM"
-			@click="clickContentView"
-			@touchstart="touchStart" 
-			@touchend="touchEnd">
-			<textarea v-model="bookContent"  
-			style="width: 100%;line-height: 35px;"
-			:style="{height:screenInfo.screenHeight+'px',
-			opacity:bookConfig.opacity,
-			'font-size':bookConfig.fontSize+'px'}">
-			</textarea>
-		</view>
-		<view style="position: fixed;bottom: 20px;width: 100%;">
-			<!--#ifdef H5-->
-			<view style="display: flex;justify-content: space-between;">
-				<button @click="prev" size="mini">上一页</button>
-				<button @click="next" size="mini">下一页</button>
+		
+		<!--图书区-->
+		<view style="text-align: center;">
+			<view style="width: 20%;height: 100rpx;
+				border: 1px solid lightgray;
+				text-align: left;
+				margin: 10rpx;vertical-align: middle;
+				display: inline-block;padding: 20rpx;"
+				v-for="(book,index) in books" :key="index"
+				@click="toReadPage(book.book_id)">
+				<label style="font-size: 12px;">{{book.book_name}}</label>
 			</view>
-			<!-- #endif -->
-			
-			<uni-collapse ref="collapse" style="margin-top: 10px;" v-if="showSetting">
-				<uni-collapse-item title="其他设置" >
-					<view style="margin-top: 20rpx;padding: 20rpx;">
-						<label>透明度</label>
-						<slider :value="bookConfig.opacity" @change="changeBookConfig('opacity',$event)" show-value step="0.1" min="0" max="1" />
-					</view>
-					<view style="margin-top: 20rpx;padding: 20rpx;">
-						<label>字体</label>
-						<slider :value="bookConfig.fontSize" @change="changeBookConfig('fontSize',$event)" show-value step="1" min="10" max="20" />
-					</view>
-					<view style="margin-top: 20rpx;padding: 20rpx;">
-						<label>进度</label>
-						<slider :value="bookConfig.nowBookLength" @change="changeBookConfig('bookLength',$event)" step="8" min="0" :max="bookLength" />
-					</view>
-				</uni-collapse-item>
-				
-			</uni-collapse>
-			
+			<uni-load-more :status="loadMoreStatus"></uni-load-more>
 		</view>
 	</view>
 </template>
 
 <script>
-	import {getBookContent} from '@/apis/book.js'; 
+	import {findBookInfoByPage} from '@/apis/book.js'
 	export default {
 		data() {
 			return {
-				bookContent:'',
-				bookLength:'',//书籍总进度
-				bookConfig:{
-					fontSize:13,//单位px
-					color:'#000000',//颜色
-					backgroundColor:'#ffffff',//背景色
-					opacity:1,//透明度
-					nowBookLength:'',//当前进度
-				},
 				pageInfo:{
 					page:0,
-					size:120,//多少字
-					range:0,//偏移量
+					size:30,
 				},
 				pageParam:{
-					videoName:''
+					bookName:''
 				},
-				screenInfo:{
-					screenWidth:200,
-					screenHeight:400,
-				},
-				touchStartInfo:{
-					x:0,
-					y:0,
-				},
-				showSetting:true,//展示配置
+				loadMoreStatus:"more",
+				books:[],
 			}
 		},
 		onLoad() {
-			var systemInfo = uni.getSystemInfoSync();
-			this.screenInfo.screenWidth = systemInfo.screenWidth;
-		    this.screenInfo.screenHeight = systemInfo.screenHeight-100;
-			this.getBookContentM();
+			this.findBookInfoByPageM()
+		},
+		onPullDownRefresh() {
+			this.pageInfo.page = 0;
+			this.findBookInfoByPageM();
+		},
+		onReachBottom() {
+			if(this.loadMoreStatus=="more"){
+				this.pageInfo.page++;
+				this.findBookInfoByPageM();
+			}
+		},
+		watch:{
 		},
 		methods: {
-			clickContentView(){
-				// this.showSetting = false;
-			},
-			showSettingM(){
-				this.showSetting = true;
-			},
-			touchStart(e){
-				this.touchStartInfo.x = e.changedTouches[0].clientX;
-				this.touchStartInfo.y = e.changedTouches[0].clientY;
-			},
-			touchEnd(e){
-				const subX = e.changedTouches[0].clientX - this.touchStartInfo.x;
-				const subY = e.changedTouches[0].clientY - this.touchStartInfo.y;
-				if (subY < -50) {
-					// console.log('下滑')
-				} else if (subY > 50) {
-					// console.log('上滑')
-				} else if (subX > 50) {
-					// console.log('左滑')
-					this.prev()
-				} else if (subX < -50) {
-					// console.log('右滑')
-					this.next()
-				} else {
-					// console.log('无效')
-				}
-			},
-			next(){
-				this.getBookContentM();
-			},
-			prev(){
-				var contentLength = this.bookContent.length;
-				this.pageInfo.range -= contentLength*8;
-				if(this.pageInfo.range<0){
-					this.pageInfo.range = 0;
-				}
-				this.getBookContentM();
-			},
-			getBookContentM(){
-				getBookContent(this.pageParam,this.pageInfo).then(res=>{
-					if(res?.result_code=="0"){
-						if(res.data){
-							if(!res.data.content){
-								uni.showToast({
-									content:"没有更多内容了"
-								})
-								return;
+			findBookInfoByPageM(){
+				this.loadMoreStatus = "loading"
+				findBookInfoByPage(this.pageParam,this.pageInfo).then(res=>{
+					if (res?.result_code == "0") {
+						if (res.data) {
+							if(this.pageInfo.page=="0"){
+								this.books = res.data.content;
+							}else{
+								this.books = [...this.books,...res.data.content];
 							}
-							this.bookContent = res.data.content;
-							this.pageInfo.range = res.data.range;
-							var contentLength = this.bookContent.length;
-							if(!this.bookLength){
-								this.bookLength = res.data.bookLength-8*this.pageInfo.size/2;
+							this.pageInfo = res.data.pageRequest;
+							var total = res.data.total;
+							
+							if(this.books.length>=total){
+								this.loadMoreStatus = "noMore"
 							}
-							// this.screenInfo.screenHeight = contentLength+200;
 						}
 					}
+					if(this.loadMoreStatus!="noMore"){
+						this.loadMoreStatus = "more";
+					}
+					
+					uni.stopPullDownRefresh();//下拉刷新时
 				});
 			},
-			changeBookConfig(type,e){
-				const {value} = e.detail;
-				switch(type){
-					case "opacity":
-						this.bookConfig.opacity = value;
-						break;
-					case "fontSize":
-						this.bookConfig.fontSize = value;
-						break;
-					case "bookLength":
-						this.bookConfig.nowBookLength = value;
-						this.pageInfo.range = this.bookConfig.nowBookLength;
-						this.getBookContentM();
-						break;
-				}
+			toReadPage(bookId){
+				uni.navigateTo({
+					url:'/pages/book/read?bookId='+bookId
+				})
 			}
-			
 		}
 	}
 </script>

@@ -72,6 +72,24 @@
             "style" :                                                                                    
             {
                 "navigationBarTitleText": "图书",
+                "enablePullDownRefresh": true
+            }
+            
+        }
+        ,{
+            "path" : "pages/book/read",
+            "style" :                                                                                    
+            {
+                "navigationBarTitleText": "阅读",
+                "enablePullDownRefresh": false
+            }
+            
+        }
+        ,{
+            "path" : "pages/book/titles",
+            "style" :                                                                                    
+            {
+                "navigationBarTitleText": "目录",
                 "enablePullDownRefresh": false
             }
             
